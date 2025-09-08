@@ -1,4 +1,5 @@
 import type { CollectionSlug, Config } from 'payload'
+import { importJsonData } from './endpoints/importJsonData.js'
 
 export type PayloadcmsJsonImporterConfig = {
   /**
@@ -70,6 +71,12 @@ export const payloadcmsJsonImporter =
         await incomingOnInit(payload)
       }
     }
+
+    config.endpoints.push({
+      path: '/import-json/:collectionSlug',
+      method: 'post',
+      handler: importJsonData,
+    })
 
     return config
   }
