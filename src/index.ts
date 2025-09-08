@@ -1,7 +1,5 @@
 import type { CollectionSlug, Config } from 'payload'
 
-import { customEndpointHandler } from './endpoints/customEndpointHandler.js'
-
 export type PayloadcmsJsonImporterConfig = {
   /**
    * List of collections to add a custom field
@@ -17,16 +15,6 @@ export const payloadcmsJsonImporter =
       config.collections = []
     }
 
-    config.collections.push({
-      slug: 'plugin-collection',
-      fields: [
-        {
-          name: 'id',
-          type: 'text',
-        },
-      ],
-    })
-
     if (pluginOptions.collections) {
       for (const collectionSlug in pluginOptions.collections) {
         const collection = config.collections.find(
@@ -34,13 +22,18 @@ export const payloadcmsJsonImporter =
         )
 
         if (collection) {
-          collection.fields.push({
-            name: 'addedByPlugin',
-            type: 'text',
-            admin: {
-              position: 'sidebar',
-            },
-          })
+          if (!collection.admin) {
+            collection.admin = {}
+          }
+          if (!collection.admin.components) {
+            collection.admin.components = {}
+          }
+          if (!collection.admin.components.listMenuItems) {
+            collection.admin.components.listMenuItems = []
+          }
+          collection.admin?.components?.listMenuItems?.push(
+            `payloadcms-json-importer/rsc#ImportButtonServer`,
+          )
         }
       }
     }
@@ -69,43 +62,12 @@ export const payloadcmsJsonImporter =
       config.admin.components.beforeDashboard = []
     }
 
-    config.admin.components.beforeDashboard.push(
-      `payloadcms-json-importer/client#BeforeDashboardClient`,
-    )
-    config.admin.components.beforeDashboard.push(
-      `payloadcms-json-importer/rsc#BeforeDashboardServer`,
-    )
-
-    config.endpoints.push({
-      handler: customEndpointHandler,
-      method: 'get',
-      path: '/my-plugin-endpoint',
-    })
-
     const incomingOnInit = config.onInit
 
     config.onInit = async (payload) => {
       // Ensure we are executing any existing onInit functions before running our own.
       if (incomingOnInit) {
         await incomingOnInit(payload)
-      }
-
-      const { totalDocs } = await payload.count({
-        collection: 'plugin-collection',
-        where: {
-          id: {
-            equals: 'seeded-by-plugin',
-          },
-        },
-      })
-
-      if (totalDocs === 0) {
-        await payload.create({
-          collection: 'plugin-collection',
-          data: {
-            id: 'seeded-by-plugin',
-          },
-        })
       }
     }
 

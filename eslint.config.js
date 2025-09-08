@@ -26,6 +26,12 @@ export default [
   ...payloadEsLintConfig,
   {
     rules: {
+      'perfectionist/sort-objects': ['off'],
+      'perfectionist/sort-interfaces': ['off'],
+      'perfectionist/sort-named-imports': ['off'],
+      'perfectionist/sort-jsx-props': ['off'],
+      'perfectionist/sort-imports': ['off'],
+      'perfectionist/sort-object-types': ['off'],
       'no-restricted-exports': 'off',
     },
   },
