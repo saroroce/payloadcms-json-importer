@@ -2,7 +2,6 @@
 import type { ServerComponentProps } from 'payload'
 import { ImportButtonClient } from './importButtonClient.js'
 
-// @ts-ignore
 export const ImportButtonServer = async (props: ServerComponentProps) => {
   const collectionSlug = props.collectionSlug
   const collection = props.payload.collections[collectionSlug]
@@ -12,7 +11,7 @@ export const ImportButtonServer = async (props: ServerComponentProps) => {
     return <div>Collection {collectionSlug} not found.</div>
   }
 
-  const fields = collection.config.fields
+  const fields = collection.config.flattenedFields
     .map((field) => ('name' in field ? field.name : null))
     .filter(Boolean)
     .concat('id') // Добавлено поле 'id'
