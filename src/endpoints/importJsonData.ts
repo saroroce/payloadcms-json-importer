@@ -104,6 +104,17 @@ export async function importJsonData(req: PayloadRequest) {
       }
     }
 
+    await req.payload.update({
+      collection: collectionSlug,
+      data: {},
+      where: {
+        id: {
+          in: results
+            ?.filter((r) => r.status === 'created' || r.status === 'updated')
+            ?.map((r) => r.id),
+        },
+      },
+    })
     return NextResponse.json({ message: 'Import process completed', results }, { status: 200 })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
