@@ -11,7 +11,7 @@ const spinAnimation = `
   }
 `
 
-if (document) {
+if (typeof document !== 'undefined') {
   const style = document.createElement('style')
   style.textContent = spinAnimation
   document.head.appendChild(style)
