@@ -11,10 +11,11 @@ const spinAnimation = `
   }
 `
 
-const style = document.createElement('style')
-style.textContent = spinAnimation
-document.head.appendChild(style)
-
+if (document) {
+  const style = document.createElement('style')
+  style.textContent = spinAnimation
+  document.head.appendChild(style)
+}
 interface ImportButtonClientProps {
   collectionSlug: CollectionSlug
   collectionFields: string[]

@@ -274,6 +274,25 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
         // eslint-disable-next-line no-console
         console.log('Final mapped data:', mappedData)
 
+        // Проверяем каждое поле на валидность ObjectId перед отправкой
+        for (const [field, value] of Object.entries(mappedData)) {
+          if (typeof value === 'string' && value.length !== 24 && !/^[0-9a-f]+$/i.test(value)) {
+            const fieldConfig = collection.config.fields.find((f) => {
+              if ('name' in f) {
+                return (f as { name: string }).name === field
+              }
+              return false
+            })
+            if (
+              fieldConfig &&
+              'type' in fieldConfig &&
+              (fieldConfig.type === 'relationship' || fieldConfig.type === 'upload')
+            ) {
+              throw new Error(`Invalid ObjectId in field '${field}': ${value}`)
+            }
+          }
+        }
+
         if (requestBody.importMode === 'add') {
           const doc = await req.payload.db.create({
             collection: requestBody.collectionSlug,
@@ -319,24 +338,38 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
         }
       } catch (opError: unknown) {
         const errorMessage = opError instanceof Error ? opError.message : 'Unknown operation error'
-
-        // Извлекаем имя поля из сообщения об ошибке
         let field = 'N/A'
-        const details = opError instanceof Error ? opError.stack : undefined
+        let details = opError instanceof Error ? opError.stack : undefined
 
         if (opError instanceof Error) {
-          const match = opError.message.match(/failed: ([^:]+):/)
-          if (match) {
-            field = match[1]
-          }
+          // Проверяем наши собственные ошибки валидации ObjectId
+          const invalidObjectIdMatch = opError.message.match(/Invalid ObjectId in field '([^']+)'/)
+          if (invalidObjectIdMatch) {
+            field = invalidObjectIdMatch[1]
+            details = opError.message
+          } else {
+            // Проверяем ошибки MongoDB
+            const mongoMatch = opError.message.match(/failed: ([^:]+):/)
+            if (mongoMatch) {
+              field = mongoMatch[1]
+            }
 
-          // Если это ошибка валидации Mongoose, добавляем больше деталей
-          if (opError.message.includes('ValidationError')) {
-            const validationMatch = opError.message.match(/validation failed: (.+)/)
-            if (validationMatch) {
-              const validationDetails = validationMatch[1]
-              const fieldErrors = validationDetails.split(', ')
-              field = fieldErrors[0].split(':')[0]
+            // Проверяем ошибки валидации Mongoose
+            if (opError.message.includes('ValidationError')) {
+              const validationMatch = opError.message.match(/validation failed: (.+)/)
+              if (validationMatch) {
+                const validationDetails = validationMatch[1]
+                const fieldErrors = validationDetails.split(', ')
+                field = fieldErrors[0].split(':')[0]
+              }
+            }
+
+            // Проверяем ошибки BSONError для ObjectId
+            if (opError.message.includes('BSONError')) {
+              const bsonMatch = opError.message.match(/BSONError: (.+)/)
+              if (bsonMatch) {
+                details = `MongoDB ObjectId Error: ${bsonMatch[1]}\nПроверьте, что все ID полей отношений являются 24-символьными hex строками`
+              }
             }
           }
         }
@@ -366,6 +399,30 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
       },
       { created: 0, error: 0, skipped: 0, updated: 0 },
     )
+
+    // Собираем все успешно созданные/обновленные ID
+    const successIds = results
+      .filter((result) => result.status === 'created' || result.status === 'updated')
+      .map((result) => result.id)
+      .filter((id): id is string => id !== undefined)
+
+    if (successIds.length > 0) {
+      try {
+        // Активируем все хуки через bulk update
+        await req.payload.update({
+          collection: requestBody.collectionSlug,
+          where: {
+            id: { in: successIds },
+          },
+          data: {
+            _status: 'published',
+          },
+        })
+      } catch (hookError) {
+        // eslint-disable-next-line no-console
+        console.error('Bulk update error:', hookError)
+      }
+    }
 
     return NextResponse.json(
       {
