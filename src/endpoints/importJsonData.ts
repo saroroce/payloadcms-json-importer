@@ -34,6 +34,7 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
       importMode: 'add' | 'update' | 'upsert'
       matchField?: string
       fieldMappings: Record<string, string>
+      fieldTypes?: Record<string, { type: string; localized?: boolean }>
     }
 
     let requestBody: RequestBody
@@ -52,8 +53,15 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
         return NextResponse.json({ error: 'Invalid request body structure' }, { status: 400 })
       }
 
-      const { collectionSlug, data, importMode, matchField, fieldMappings } =
-        parsedBody as RequestBody
+      const { collectionSlug, data, importMode, matchField, fieldMappings, fieldTypes } =
+        parsedBody as {
+          collectionSlug: string
+          data: Record<string, unknown>[]
+          importMode: 'add' | 'update' | 'upsert'
+          matchField?: string
+          fieldMappings: Record<string, string>
+          fieldTypes?: Record<string, { type: string; localized?: boolean }>
+        }
 
       if (!collectionSlug || !data || !importMode) {
         return NextResponse.json(
@@ -65,7 +73,7 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
         )
       }
 
-      requestBody = { collectionSlug, data, importMode, matchField, fieldMappings }
+      requestBody = { collectionSlug, data, importMode, matchField, fieldMappings, fieldTypes }
     } catch (error) {
       return NextResponse.json(
         {
@@ -88,27 +96,6 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
       )
     }
 
-    // Get collection field information to identify field types
-    const collectionConfig = collection.config
-    const localizedFields = new Set<string>()
-    const richtextFields = new Set<string>()
-
-    for (const field of collectionConfig.fields) {
-      if (typeof field === 'object' && field !== null && 'name' in field) {
-        const fieldName = field.name
-
-        // Check for localized fields
-        if ('localized' in field && field.localized === true) {
-          localizedFields.add(fieldName)
-        }
-
-        // Check for richtext fields
-        if ('type' in field && field.type === 'richText') {
-          richtextFields.add(fieldName)
-        }
-      }
-    }
-
     const results: ImportResult[] = []
 
     for (const item of requestBody.data) {
@@ -122,7 +109,7 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
           const value = item[jsonField]
 
           // Handle localized fields
-          if (localizedFields.has(collectionField)) {
+          if (requestBody.fieldTypes?.[collectionField]?.localized) {
             // Если поле имеет формат field.locale
             if (jsonField.includes('.')) {
               const [baseField, locale] = jsonField.split('.')
@@ -173,7 +160,7 @@ export async function importJsonData(req: PayloadRequest): Promise<NextResponse<
             }
           }
           // Handle richtext fields
-          else if (richtextFields.has(collectionField)) {
+          else if (requestBody.fieldTypes?.[collectionField]?.type === 'richText') {
             // eslint-disable-next-line no-console
             console.log('Processing richtext field:', { collectionField, jsonField, value })
 

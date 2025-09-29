@@ -127,6 +127,7 @@ export const ImportButtonClient = (props: ImportButtonClientProps) => {
             importMode,
             matchField,
             fieldMappings,
+            fieldTypes: props.fieldTypes, // Добавлен fieldTypes
           }), // Добавлены fieldMappings
         })
 
