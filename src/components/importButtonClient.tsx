@@ -4,18 +4,6 @@ import { CodeEdiftor, Drawer, DrawerToggler } from '@payloadcms/ui' // Удал�
 import type { CollectionSlug } from 'payload'
 import { Fragment, useState } from 'react'
 
-const spinAnimation = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`
-
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style')
-  style.textContent = spinAnimation
-  document.head.appendChild(style)
-}
 interface ImportButtonClientProps {
   collectionSlug: CollectionSlug
   collectionFields: string[]
